@@ -27,8 +27,12 @@ intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- 対象のリアクションとファイル拡張子 ---
-TARGET_REACTION = "📷"
+# --- リアクションごとの転送先チャンネル名を設定 ---
+TARGET_REACTIONS = {
+    "📷": "写真",
+    "🐶": "画像"
+}
+
 VALID_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mov", ".webm", ".pdf")
 
 @bot.event
@@ -36,7 +40,10 @@ async def on_raw_reaction_add(payload):
     if payload.user_id == bot.user.id:
         return
 
-    if str(payload.emoji.name) != TARGET_REACTION:
+    emoji_name = str(payload.emoji.name)
+    
+    # リアクションが対象外ならスキップ
+    if emoji_name not in TARGET_REACTIONS:
         return
 
     guild = bot.get_guild(payload.guild_id)
@@ -46,9 +53,12 @@ async def on_raw_reaction_add(payload):
     if not message.attachments:
         return
 
-    photo_channel = discord.utils.get(guild.channels, name="写真")
-    if photo_channel is None:
-        print("写真チャンネルが見つかりません")
+    # 転送先チャンネル名を取得
+    target_channel_name = TARGET_REACTIONS[emoji_name]
+    target_channel = discord.utils.get(guild.channels, name=target_channel_name)
+    
+    if target_channel is None:
+        print(f"{target_channel_name} チャンネルが見つかりません")
         return
 
     for attachment in message.attachments:
@@ -62,7 +72,7 @@ async def on_raw_reaction_add(payload):
                 f"🔗 [元メッセージへ移動]({message_url})"
             )
 
-            await photo_channel.send(
+            await target_channel.send(
                 forward_text,
                 file=await attachment.to_file(),
                 suppress_embeds=True
